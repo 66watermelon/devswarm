@@ -71,6 +71,11 @@ async def run_graph_worker(
         if has_history:
             input_state = {"messages": msgs}
             input_state["user_id"] = user_id
+            # 重置 QA 重试计数器，防止上一轮 solve 的残留值误导 diagnose 模式
+            input_state["retry_count"] = 0
+            input_state["execution_feedback"] = ""
+            if user_code:
+                input_state["user_code"] = user_code
         else:
             input_state: DevState = {
                 "messages": msgs,

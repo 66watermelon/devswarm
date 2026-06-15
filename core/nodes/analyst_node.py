@@ -86,7 +86,7 @@ async def analyst_node(state: DevState) -> dict:
             )
 
     # 1. 动态把题目注入到 SystemPrompt 中，保证作为绝对约束指令
-    user_memory_context = state.get("user_memory_context", "")
+    user_memory_context = state.get("user_memory_context", "")       
     if user_memory_context.strip():
         memory_block = f"【用户知识档案】\n{user_memory_context}"
     else:

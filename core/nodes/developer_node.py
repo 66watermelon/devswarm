@@ -30,41 +30,47 @@ def _build_developer_system_prompt(state: DevState) -> str:
     user_code = state.get("user_code", "")
     retry = state.get("retry_count", 0)
 
+    ## 如果当前是 diagnose 模式
     if mode == "diagnose":
         parts.append(
             "\n" + "=" * 60 + "\n【诊断模式 —— 修复已有代码】\n" + "=" * 60 + "\n"
             "你的任务是修复代码中的问题，而不是从零重写。\n"
             "保留原有的代码结构和思路，只修改有问题的地方。\n"
         )
+        ## 如果不是第一次修改用户代码则将上次developer写的代码给llm
         if retry > 0:
             prev_code = state.get("generated_code", "")
             if prev_code:
                 parts.append("## 你上一次提交的代码\n```python\n" + prev_code + "\n```")
+        ## 如果是第一次修改用户代码则将用户的原始代码给llm
         else:
             if user_code:
                 parts.append("## 用户的原始代码\n```python\n" + user_code + "\n```")
+    ## 如果是 solve 模式
     else:
         parts.append(
             "\n" + "=" * 60 + "\n【求解模式 —— 从零编写代码】\n" + "=" * 60
         )
 
     # ---- 题目 ----
+    ## TODO 优化：当前的"problem_description"好像直接取值于用户的文字输入区，在提示词中缺用于“算法题目”模块，不太严谨
     problem = state.get("problem_description", "")
     if problem:
         parts.append("\n" + "-" * 60 + "\n算法题目\n" + "-" * 60 + "\n" + problem)
 
-    # ---- Analyst 策略 ----
+    # ---- Analyst 给出的策略 （在diagnose模式下，Analyst根据用户的知识图谱给出可以使用哪些算法，应该避开哪些用户的薄弱点以及测试样例。在solve模式下，Analyst给出算法策略，两个模式下developer根据“algorithm_strategy”写代码）----
     strategy = state.get("algorithm_strategy", "")
     if strategy:
         parts.append("\n" + "-" * 60 + "\nAnalyst 分析\n" + "-" * 60 + "\n" + strategy)
 
-    # ---- 边界用例 ----
+    # ---- 边界用例 （Analyst给出的测试用例）----
     edge = state.get("edge_cases", "")
     if edge:
         parts.append("\n" + "-" * 60 + "\n边界测试用例\n" + "-" * 60 + "\n" + edge)
 
     # ---- QA 打回反馈 ----
     feedback = state.get("execution_feedback", "")
+    ## 如果写代码没通过贴上qa的反馈
     if feedback and retry > 0:
         parts.append(
             "\n" + "=" * 60 + "\n"

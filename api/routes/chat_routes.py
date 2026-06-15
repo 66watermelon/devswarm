@@ -26,6 +26,8 @@ from api.deps import get_current_user, get_async_db
 from models import User, Thread
 from schemas.chat import ThreadCreateRequest, ThreadResponse, StreamRequest
 
+from core.limiter import limiter
+
 import main_graph
 from core.utils.message_utils import clean_messages
 from db.redis_client import redis_async
@@ -73,6 +75,7 @@ async def list_threads(
 
 
 @router.post("/stream", summary="JWT 鉴权流式推演（CQRS + Redis 锁 + 记忆吸收）")
+@limiter.limit("10/minute")
 async def chat_stream(
     body: StreamRequest,
     background_tasks: BackgroundTasks,

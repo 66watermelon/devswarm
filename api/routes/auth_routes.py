@@ -8,6 +8,8 @@ from typing import Optional
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi import APIRouter, Depends, HTTPException, status, logger
 from sqlalchemy.orm import Session
+
+from core.limiter import limiter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from db.database import get_db, redis_client
 from db.neo4j_client import AsyncNeo4jClient
@@ -36,6 +38,7 @@ router = APIRouter(prefix="/api/auth", tags=["认证"])
     status_code=status.HTTP_201_CREATED,
     summary="用户注册",
 )
+@limiter.limit("5/minute")
 async def register(
     body: UserRegisterRequest,
     db: Session = Depends(get_db),
@@ -97,6 +100,7 @@ async def register(
     response_model=TokenResponse,
     summary="用户登录",
 )
+@limiter.limit("10/minute")
 def login(
     form_data: OAuth2PasswordRequestForm = Depends(),  # 使用表单依赖
     db: Session = Depends(get_db),

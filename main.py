@@ -18,8 +18,10 @@ from pathlib import Path
 from dotenv import load_dotenv
 from contextlib import asynccontextmanager
 from typing import AsyncGenerator
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi import _rate_limit_exceeded_handler
+from core.limiter import limiter
 
 load_dotenv(Path(__file__).resolve().parent / ".env", override=False)
 logger = logging.getLogger(__name__)
@@ -110,6 +112,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# ================================================================
+# 3.5 速率限制（IP 维度，内存存储，单 worker 安全）
+# ================================================================
+
+app.state.limiter = limiter
+app.add_exception_handler(429, _rate_limit_exceeded_handler)
 
 
 # ================================================================

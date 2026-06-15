@@ -6,8 +6,9 @@ DevSwarm Chat 模块 —— Pydantic 请求/响应校验模型
 
 from datetime import datetime
 from typing import Optional
+import re
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 # ---------------------------------------------------------------------------
@@ -34,9 +35,29 @@ class StreamRequest(BaseModel):
         thread_id: 关联的会话 ID（前端在首轮消息前已懒创建，此处为必填）。
         user_code: 诊断模式下用户提供的待调试代码（可选）。
     """
-    prompt: str = Field(..., min_length=1, description="用户输入的算法题目或提问")
+    prompt: str = Field(
+        ..., min_length=1, max_length=10000,
+        description="用户输入的算法题目或提问（上限 5000 字符）",
+    )
     thread_id: str = Field(..., min_length=1, description="关联的会话 ID")
-    user_code: Optional[str] = Field(None, description="诊断模式下用户提供的待调试代码")
+    user_code: Optional[str] = Field(
+        None, max_length=20000,
+        description="诊断模式下用户提供的待调试代码（上限 20000 字符）",
+    )
+
+    @field_validator("prompt")
+    @classmethod
+    def sanitize_prompt(cls, v: str) -> str:
+        """移除不可见控制字符，拒绝常见 prompt injection 关键字。"""
+        # 去掉 ASCII 控制字符（保留换行 \n 和制表 \t）
+        cleaned = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', v)
+        # 拒绝明显的 prompt injection 关键字
+        blocked = ["ignore previous", "system prompt", "<<SYS>>", "<|im_start|>"]
+        lower = cleaned.lower()
+        for kw in blocked:
+            if kw in lower:
+                raise ValueError("输入包含不安全的指令")
+        return cleaned
 
 
 # ---------------------------------------------------------------------------

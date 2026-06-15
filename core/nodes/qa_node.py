@@ -38,6 +38,7 @@ def _build_qa_system_prompt(state: DevState) -> str:
     """
     parts = [QA_SYSTEM_PROMPT]
 
+    ## TODO 优化：当前的"problem_description"好像直接取值于用户的文字输入区，在提示词中缺用于“算法题目”模块，不太严谨
     problem = state.get("problem_description", "")
     if problem:
         parts.append(
@@ -53,10 +54,16 @@ def _build_qa_system_prompt(state: DevState) -> str:
 
     mode = state.get("mode", "solve")
 
-    # 诊断模式：优先测 developer 修复后的代码，否则测用户原始代码
+    # 诊断模式：首轮测 user_code，retry_count > 0 说明 developer 已修复 → 测 generated_code
     if mode == "diagnose":
-        code_to_test = state.get("generated_code", "") or state.get("user_code", "")
-        source_label = "Developer 已修复，请验证修复后的代码" if state.get("generated_code") else "用户提供的待诊断代码"
+        ## 判断要测试的代码是developer写的还是用户上传的代码
+        retry = state.get("retry_count", 0)
+        if retry > 0:
+            code_to_test = state.get("generated_code", "")
+            source_label = "Developer 已修复，请验证修复后的代码"
+        else:
+            code_to_test = state.get("user_code", "")
+            source_label = "用户提供的待诊断代码"
         if code_to_test:
             parts.append(
                 f"\n{'─' * 60}\n🔧 诊断模式：{source_label}\n"
@@ -149,7 +156,7 @@ def qa_node(state: DevState) -> dict:
         result_update["retry_count"] = current_retry + 1
 
     # ---- 7. 诊断模式首轮：提取沙箱原始输出，供 chat_agent 诊断出口使用 ----
-    # 仅在 generated_code 为空时写入（即 user_code 的首次测试结果，非 developer 修复后的重测）
+    # 仅在 generated_code 为空时写入（即 user_code 的首次测试结果，非 developer 修复后的重测），将用户代码的测试结果写入"diagnose_report"
     if state.get("mode") == "diagnose" and not state.get("generated_code"):
         for msg in reversed(state.get("messages", [])):
             if isinstance(msg, ToolMessage) and getattr(msg, "name", "") == "run_sandbox_test":

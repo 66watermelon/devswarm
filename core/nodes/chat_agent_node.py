@@ -81,27 +81,24 @@ async def chat_agent_node(state: DevState) -> dict:
     context = _build_context(state)
     system_content = f"{CHAT_AGENT_SYSTEM_PROMPT}\n\n{memory_block}{prereq_warning}\n\n【系统内部状态】\n{context}"
 
-    # diagnose 模式出口角色：用户带了代码，QA 刚跑完沙箱，chat_agent 需要反馈结果
+    # diagnose 模式出口：追加角色指令
     mode = state.get("mode", "solve")
     if mode == "diagnose":
         feedback = state.get("execution_feedback", "")
-        sandbox = state.get("diagnose_report", "")
         if feedback:
             system_content += (
                 "\n\n【诊断模式出口 —— 测试失败反馈】\n"
                 "用户提供了代码，QA 沙箱已跑完测试但失败了。\n"
-                "你的任务：用导师口吻告诉用户代码的问题在哪，结合沙箱输出指出具体错误，"
-                "给出修复建议（但不是直接重写）。保持鼓励和耐心。\n"
-                f"QA 分析：\n{feedback}\n\n"
-                f"沙箱原始输出：\n{sandbox}"
+                "你的任务：用导师口吻告诉用户代码的问题在哪，结合上方【QA 分析】和【沙箱测试原始输出】指出具体错误，"
+                "给出修复建议（但不是直接重写）。保持鼓励和耐心。"
             )
         else:
             system_content += (
                 "\n\n【诊断模式出口 —— 测试通过反馈】\n"
                 "用户提供的代码已通过所有测试。\n"
-                "你的任务：恭喜用户，结合沙箱输出展示测试结果，"
+                "你的任务：恭喜用户，结合上方【沙箱测试原始输出】展示测试结果，"
                 "简要总结代码的亮点，分析时间/空间复杂度。"
-                "分析时间/空间复杂度，如果还有优化空间可以温和提示。"
+                "如果还有优化空间可以温和提示。"
             )
 
     system_message = SystemMessage(content=system_content)
